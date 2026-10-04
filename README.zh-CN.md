@@ -72,7 +72,7 @@ anchor_grep        # 默认启用
 - **启用 anchor_grep Lean：**`read` (88) + `replace` (150) + `insert` (127) + `anchor_grep` (119) + `undo_last_change` (68)
 - **启用 anchor_grep 上游：**`read` (276) + `replace` (740) + `insert` (379) + `anchor_grep` (424) + `undo_last_change` (221)
 
-测量环境为 Pi 1.0.0 的独立临时进程、空白工作目录与空白配置。排除内置工具、Skills、上下文文件、会话历史、用户消息、无关扩展、运行时 UI 与 Slash Commands；计入扩展的 `before_agent_start` 注入。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
+测量环境为 Pi 1.0.2 的独立临时进程、空白工作目录与空白配置。排除内置工具、Skills、上下文文件、会话历史、用户消息、无关扩展、运行时 UI 与 Slash Commands；计入扩展的 `before_agent_start` 注入。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
 <!-- token-benchmark:benchmark:end -->
 
 ## 版本
