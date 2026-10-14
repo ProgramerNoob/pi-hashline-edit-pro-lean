@@ -1,15 +1,15 @@
-// pi-hashline-edit-pro-lean2: full pi-hashline-edit-pro@4.4.3 runtime,
+// pi-hashline-edit-pro-lean: full pi-hashline-edit-pro@6.4.5 runtime,
 // with concise provider-facing tool/command text and local collapsed-display support.
 //
-// Design (same idea as pi-hashline-edit-pro-lean): delegate 100% of the
-// runtime to upstream by calling its default export with a proxied `pi`.
-// Only model-visible text differs: short tool descriptions, one-line
-// guidelines, parameter schemas without per-field descriptions, and short
-// command descriptions. Upstream behavior and error semantics stay intact.
+// Design: delegate 100% of the runtime to upstream by calling its default
+// export with a proxied `pi`. Only model-visible text differs: short tool
+// descriptions, one-line guidelines, parameter schemas without per-field
+// descriptions, and short command descriptions. Upstream behavior, error
+// semantics, and tool availability (/hashline-config) stay intact.
 //
-// 4.x contract change vs 3.x: replace/insert resolve the file from anchors
-// alone (anchor-only). Do NOT pass `path` unless /hashline-config opted into
-// requirePath. undo_last_change still requires `path`.
+// 6.x contract: replace/insert take one exact `text` string ("" deletes in
+// replace); the anchored search tool is named `grep`. Edit tools resolve the
+// file from anchors alone; undo_last_change still requires `path`.
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import upstream from "pi-hashline-edit-pro";
 
@@ -36,21 +36,27 @@ function decorateWithCollapsedDisplay<T extends CollapsedDisplayTool>(tool: T): 
 const DESC: Record<string, string> = {
   read: "Read a file with 4-char HASH anchors; supports paging and images.",
   replace: "Replace lines by bare 4-char HASH anchors; anchor-only, no path.",
-  insert: "Insert raw lines around a bare 4-char HASH anchor; anchor-only.",
-  undo_last_change: "Undo the most recent replace or insert for a file; needs path.",
-  anchor_grep: "Search text with ripgrep; hits carry anchors for direct editing.",
+  replace_match: "Replace an exact substring inside an anchored line range; anchor-only.",
+  insert: "Insert text around a bare 4-char HASH anchor; anchor-only.",
+  copy: "Copy an anchored line range to another anchor, in any file.",
+  move: "Move an anchored line range to another anchor, in any file.",
+  undo_last_change: "Undo the most recent hashline edit for a file; needs path.",
+  grep: "Search text with ripgrep; hits carry anchors for direct editing.",
 };
 
 const GUIDE: Record<string, string> = {
-  read: "Use fresh anchors from read output; re-read after edits. E_AUTO_READ_ALL means the attached copy is still exact.",
-  replace: "Anchors resolve the file; do not pass path unless parameters list it. replacement_lines is raw lines, one string per item, no HASH prefixes or newlines; [] deletes. Same-file calls in one message form one batch; follow +anchor rows in the diff. Re-read after failure.",
-  insert: "Anchor resolves the file; do not pass path unless parameters list it. lines are raw, one string per item; the anchor line stays. Re-read after failure.",
-  undo_last_change: "Needs path. Only the latest replace or insert per file; write clears it. Re-read if stale.",
-  anchor_grep: "Use returned anchors directly in replace or insert; narrow path, glob, or limit.",
+  read: "Use fresh anchors from read output; re-read after edits.",
+  replace: "Anchors resolve the file; do not pass path unless parameters list it. text is the exact raw content, no HASH prefixes; \"\" deletes. Same-file calls in one message form one batch; follow +anchor rows in the diff. Re-read after failure.",
+  replace_match: "old_string is only the changing fragment; every match in the range is replaced. Whole-line changes use replace.",
+  insert: "Anchor resolves the file; do not pass path unless parameters list it. text is the exact raw content; the anchor line stays. Re-read after failure.",
+  copy: "Destination must be outside the source range; to append, anchor the file's last line with direction after.",
+  move: "Destination must be outside the source range; re-read the source file after a cross-file move.",
+  undo_last_change: "Needs path. Only the latest edit per file; write clears it. Re-read if stale.",
+  grep: "Use returned anchors directly in edits; narrow path, glob, or limit; literal: true for metacharacters.",
 };
 
 const CMD_DESC: Record<string, string> = {
-  "hashline-config": "Open hashline settings: read, path, strict, diff.",
+  "hashline-config": "Open hashline settings: read, grep, copy/move, replace_match, path, diff.",
   "clear-anchors": "Clear session anchor claims; re-read to reclaim.",
 };
 

@@ -15,8 +15,11 @@ const collapsedDisplayService = Symbol.for(
 const expectedTools = [
   "read",
   "replace",
+  "replace_match",
   "insert",
-  "anchor_grep",
+  "copy",
+  "move",
+  "grep",
   "undo_last_change",
 ];
 
@@ -49,7 +52,7 @@ function assertNoDescriptions(value) {
   for (const child of Object.values(value)) assertNoDescriptions(child);
 }
 
-test("registers the upstream 4.4.3 tools with lean model-facing text", () => {
+test("registers the upstream 6.4.5 tools with lean model-facing text", () => {
   const registered = [];
   const commands = [];
   const pi = createPi(registered, commands);
@@ -73,21 +76,30 @@ test("registers the upstream 4.4.3 tools with lean model-facing text", () => {
     ));
   }
 
-  // 4.4.3 contract: replace/insert are anchor-only by default (no path).
+  // 6.x contract: anchor-only edits (no path) take one exact `text` string.
   const replace = registered.find((tool) => tool.name === "replace");
   assert.deepEqual(Object.keys(replace.parameters.properties), [
     "remove_from",
     "remove_to",
-    "replacement_lines",
+    "text",
   ]);
   const insert = registered.find((tool) => tool.name === "insert");
   assert.deepEqual(Object.keys(insert.parameters.properties), [
     "anchor",
     "direction",
-    "lines",
+    "text",
   ]);
   const undo = registered.find((tool) => tool.name === "undo_last_change");
   assert.deepEqual(Object.keys(undo.parameters.properties), ["path"]);
+
+  // Lean text must not teach retired 4.x names or fields.
+  const visible = JSON.stringify([
+    ...registered.map((tool) => [tool.description, tool.promptGuidelines, tool.parameters]),
+    ...commands.map(([, cmd]) => cmd.description),
+  ]);
+  for (const stale of ["replacement_lines", "anchor_grep", "E_AUTO_READ_ALL", "one string per item"]) {
+    assert.equal(visible.includes(stale), false, `model-visible text mentions ${stale}`);
+  }
 });
 
 test("trims upstream command descriptions without dropping commands", () => {
@@ -100,7 +112,7 @@ test("trims upstream command descriptions without dropping commands", () => {
   assert.ok("clear-anchors" in byName);
   for (const [, cmd] of commands) {
     assert.equal(typeof cmd.description, "string");
-    assert.ok(cmd.description.length < 60);
+    assert.ok(cmd.description.length < 80);
     assert.equal(typeof cmd.handler, "function");
   }
 });
