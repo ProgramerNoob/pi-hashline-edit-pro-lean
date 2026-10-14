@@ -4,6 +4,24 @@
 
 A token-lean Pi wrapper around [`pi-hashline-edit-pro`](https://github.com/YuGiMob/pi-hashline-edit-pro). It pins the complete upstream `6.4.5` runtime while shortening persistent provider-facing tool text.
 
+## Context footprint
+
+<!-- token-benchmark:benchmark:start -->
+Measured against upstream `pi-hashline-edit-pro@6.4.5`:
+
+| Configuration | Lean | Upstream | Saved |
+| --- | ---: | ---: | ---: |
+| Default: five core tools | **503** | 2,114 | **1,611 (76.2%)** |
+| All eight tools on | **859** | 4,732 | **3,873 (81.8%)** |
+
+- **Default: five core tools Lean:** `read` (81) + `grep` (113) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
+- **Default: five core tools upstream:** `read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **All eight tools on Lean:** `read` (81) + `grep` (113) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
+- **All eight tools on upstream:** `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
+
+Measured with Pi 1.2.0 in separate temporary processes with empty working directories and configuration. Built-in tools, skills, context files, session history, user messages, unrelated extensions, runtime UI, and slash commands are excluded; `before_agent_start` additions are included. Tokens are a fixed character-proxy estimate using `ceil(characters / 4)`, not provider tokenizer billing.
+<!-- token-benchmark:benchmark:end -->
+
 ## What it keeps
 
 - Four-character Hashline anchors and served-anchor validation.
@@ -63,23 +81,6 @@ Two upstream settings swap in Pi's plain tools: `anchorGrepEnabled: false` regis
 
 Start a fresh Pi session after upgrading so the model receives the new schemas and instructions.
 
-## Context footprint
-
-<!-- token-benchmark:benchmark:start -->
-Measured against upstream `pi-hashline-edit-pro@6.4.5`:
-
-| Configuration | Lean | Upstream | Saved |
-| --- | ---: | ---: | ---: |
-| Default: five core tools | **503** | 2,114 | **1,611 (76.2%)** |
-| All eight tools on | **859** | 4,732 | **3,873 (81.8%)** |
-
-- **Default: five core tools Lean:** `read` (81) + `grep` (113) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
-- **Default: five core tools upstream:** `read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
-- **All eight tools on Lean:** `read` (81) + `grep` (113) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
-- **All eight tools on upstream:** `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
-
-Measured with Pi 1.2.0 in separate temporary processes with empty working directories and configuration. Built-in tools, skills, context files, session history, user messages, unrelated extensions, runtime UI, and slash commands are excluded; `before_agent_start` additions are included. Tokens are a fixed character-proxy estimate using `ceil(characters / 4)`, not provider tokenizer billing.
-<!-- token-benchmark:benchmark:end -->
 ## Versions
 
 - Lean wrapper: `6.4.5-lean.1`

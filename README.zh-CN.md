@@ -4,6 +4,24 @@
 
 [`pi-hashline-edit-pro`](https://github.com/YuGiMob/pi-hashline-edit-pro) 的 Token 精简版 Pi 包装层。当前固定使用完整的上游 `6.4.5` 运行时，只精简长期进入模型上下文的工具文本。
 
+## 上下文占用
+
+<!-- token-benchmark:benchmark:start -->
+针对上游 `pi-hashline-edit-pro@6.4.5`，实测结果如下：
+
+| 配置 | Lean | 上游 | 节省 |
+| --- | ---: | ---: | ---: |
+| 默认：五个核心工具 | **503** | 2,114 | **1,611（76.2%）** |
+| 开启全部八个工具 | **859** | 4,732 | **3,873（81.8%）** |
+
+- **默认：五个核心工具 Lean：**`read` (81) + `grep` (113) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
+- **默认：五个核心工具 上游：**`read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **开启全部八个工具 Lean：**`read` (81) + `grep` (113) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
+- **开启全部八个工具 上游：**`read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
+
+测量环境为 Pi 1.2.0 的独立临时进程、空白工作目录与空白配置。排除内置工具、Skills、上下文文件、会话历史、用户消息、无关扩展、运行时 UI 与 Slash Commands；计入扩展的 `before_agent_start` 注入。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
+<!-- token-benchmark:benchmark:end -->
+
 ## 保留的能力
 
 - 四字符 Hashline 锚点与已提供锚点校验。
@@ -62,24 +80,6 @@ undo_last_change   # 仍需要 path
 - 纯删除会校验首尾两行；中间从未读到的行按磁盘上的当前内容删除。
 
 升级后请新建 Pi 会话，确保模型获得新的 Schema 与使用说明。
-
-## 上下文占用
-
-<!-- token-benchmark:benchmark:start -->
-针对上游 `pi-hashline-edit-pro@6.4.5`，实测结果如下：
-
-| 配置 | Lean | 上游 | 节省 |
-| --- | ---: | ---: | ---: |
-| 默认：五个核心工具 | **503** | 2,114 | **1,611（76.2%）** |
-| 开启全部八个工具 | **859** | 4,732 | **3,873（81.8%）** |
-
-- **默认：五个核心工具 Lean：**`read` (81) + `grep` (113) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
-- **默认：五个核心工具 上游：**`read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
-- **开启全部八个工具 Lean：**`read` (81) + `grep` (113) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
-- **开启全部八个工具 上游：**`read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
-
-测量环境为 Pi 1.2.0 的独立临时进程、空白工作目录与空白配置。排除内置工具、Skills、上下文文件、会话历史、用户消息、无关扩展、运行时 UI 与 Slash Commands；计入扩展的 `before_agent_start` 注入。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
-<!-- token-benchmark:benchmark:end -->
 
 ## 版本
 
