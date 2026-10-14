@@ -4,14 +4,19 @@
 // Design: delegate 100% of the runtime to upstream by calling its default
 // export with a proxied `pi`. Only model-visible text differs: short tool
 // descriptions, one-line guidelines, parameter schemas without per-field
-// descriptions, and short command descriptions. Upstream behavior, error
-// semantics, and tool availability (/hashline-config) stay intact.
+// descriptions, and short command descriptions. Upstream behavior and error
+// semantics stay intact. One default differs: copy/move and replace_match
+// start off (seeded into the shared upstream config, so /hashline-config
+// shows and toggles the real state).
 //
 // 6.x contract: replace/insert take one exact `text` string ("" deletes in
 // replace); the anchored search tool is named `grep`. Edit tools resolve the
 // file from anchors alone; undo_last_change still requires `path`.
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import upstream from "pi-hashline-edit-pro";
+import { configPath } from "pi-hashline-edit-pro/src/paths";
 
 const COLLAPSED_DISPLAY_SERVICE = Symbol.for(
   "@local/pi-collapsed-tools.display-service.v1",
@@ -140,9 +145,42 @@ function leanPi(pi: ExtensionAPI): ExtensionAPI {
   });
 }
 
+// Lean defaults for settings the user has never set. Upstream defaults both
+// to true; writing only missing keys keeps any explicit user choice.
+const LEAN_DEFAULTS: Record<string, boolean> = {
+  copyMoveEnabled: false,
+  replaceMatchEnabled: false,
+};
+
+function seedLeanDefaults(): void {
+  const file = configPath();
+  let config: unknown = {};
+  try {
+    config = JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    // Unreadable or corrupt files are left for upstream to report or quarantine.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return;
+  }
+  if (!config || typeof config !== "object" || Array.isArray(config)) return;
+  const record = config as Record<string, unknown>;
+  const missing = Object.keys(LEAN_DEFAULTS).filter((key) => typeof record[key] !== "boolean");
+  if (missing.length === 0) return;
+  for (const key of missing) record[key] = LEAN_DEFAULTS[key];
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    const temp = `${file}.${process.pid}.lean.tmp`;
+    writeFileSync(temp, `${JSON.stringify(record, null, 2)}\n`);
+    renameSync(temp, file);
+  } catch {
+    // Read-only config: upstream defaults apply.
+  }
+}
+
 // Full upstream lifecycle (session registry, auto-read-all, batch,
 // config overlay, write hook) runs unchanged; only the text the model
-// sees is trimmed by the proxy above.
+// sees is trimmed by the proxy above. Defaults are seeded before upstream
+// reads the config on session_start.
 export default function (pi: ExtensionAPI): void {
+  seedLeanDefaults();
   upstream(leanPi(pi));
 }

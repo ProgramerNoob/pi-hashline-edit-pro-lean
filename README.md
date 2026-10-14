@@ -30,9 +30,9 @@ Requires Pi `>=0.99.0`. Do not load another Hashline wrapper or the upstream pac
 ```text
 read
 replace            # anchor-only: no path by default
-replace_match      # exact substring inside an anchored range
+replace_match      # off by default; exact substring inside an anchored range
 insert             # anchor-only: no path by default
-copy / move        # anchored line ranges, same or another file
+copy / move        # off by default; anchored line ranges, same or another file
 grep               # anchored ripgrep; replaces Pi's built-in grep
 undo_last_change   # still requires path
 ```
@@ -41,12 +41,14 @@ Always copy the four-character anchors returned by `read` or `grep`. Never inven
 
 ## Configuration
 
-All tools above are on by default. Use `/hashline-config` to switch them and other settings; the choice is stored in `~/.config/pi-hashline-edit-pro/config.json` (or `$PI_HASHLINE_DIR/config.json`) and shared with upstream. For example, to keep only the five core tools:
+Settings live in `~/.config/pi-hashline-edit-pro/config.json` (or `$PI_HASHLINE_DIR/config.json`) and are shared with upstream. Use `/hashline-config` to change them.
+
+One default differs from upstream: `copy`, `move`, and `replace_match` start **off**, so the default tool set is `read`, `grep`, `replace`, `insert`, and `undo_last_change`. On load, the wrapper writes `false` for `copyMoveEnabled` and `replaceMatchEnabled` only when the config does not set them yet; an explicit value is never changed. To turn them on, toggle them in `/hashline-config` or set:
 
 ```json
 {
-  "copyMoveEnabled": false,
-  "replaceMatchEnabled": false
+  "copyMoveEnabled": true,
+  "replaceMatchEnabled": true
 }
 ```
 
@@ -56,7 +58,7 @@ Two upstream settings swap in Pi's plain tools: `anchorGrepEnabled: false` regis
 
 - `replacement_lines` / `lines` arrays are replaced by the `text` string; `[]` becomes `""`.
 - `anchor_grep` is now `grep` and replaces Pi's built-in `grep`.
-- New `replace_match`, `copy`, and `move` tools, each switchable in `/hashline-config`.
+- New `replace_match`, `copy`, and `move` tools, off by default in this wrapper and switchable in `/hashline-config`.
 - A pure deletion verifies its boundary lines; interior lines that were never served are removed as they currently stand.
 
 Start a fresh Pi session after upgrading so the model receives the new schemas and instructions.
@@ -68,15 +70,15 @@ Measured against upstream `pi-hashline-edit-pro@6.4.5`:
 
 | Configuration | Lean | Upstream | Saved |
 | --- | ---: | ---: | ---: |
-| Default (8 tools) | **867** | 4,732 | **3,865 (81.7%)** |
-| copy/move and replace_match off | **511** | 2,114 | **1,603 (75.8%)** |
+| Default: five core tools | **511** | 2,114 | **1,603 (75.8%)** |
+| All eight tools on | **867** | 4,732 | **3,865 (81.7%)** |
 
-- **Default Lean:** `read` (81) + `grep` (121) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
-- **Default upstream:** `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
-- **Five-tool Lean:** `read` (81) + `grep` (121) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
-- **Five-tool upstream:** `read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **Default: five core tools Lean:** `read` (81) + `grep` (121) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
+- **Default: five core tools upstream:** `read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **All eight tools on Lean:** `read` (81) + `grep` (121) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
+- **All eight tools on upstream:** `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
 
-Measured by registering each package in an isolated stub Pi session with an empty configuration directory and counting active tools after `session_start`. Each tool counts its name, description, parameter schema, snippet, and guidelines. Tokens are a fixed character-proxy estimate using `ceil(characters / 4)`, not provider tokenizer billing.
+Measured with Pi 1.2.0 in separate temporary processes with empty working directories and configuration. Built-in tools, skills, context files, session history, user messages, unrelated extensions, runtime UI, and slash commands are excluded; `before_agent_start` additions are included. Tokens are a fixed character-proxy estimate using `ceil(characters / 4)`, not provider tokenizer billing.
 <!-- token-benchmark:benchmark:end -->
 ## Versions
 

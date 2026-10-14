@@ -30,9 +30,9 @@ pi install git:github.com/kunkun9527/pi-hashline-edit-pro-lean
 ```text
 read
 replace            # anchor-only：默认不传 path
-replace_match      # 在锚点范围内替换精确子串
+replace_match      # 默认关闭；在锚点范围内替换精确子串
 insert             # anchor-only：默认不传 path
-copy / move        # 复制或移动锚点行范围，可跨文件
+copy / move        # 默认关闭；复制或移动锚点行范围，可跨文件
 grep               # 带锚点的 ripgrep，替代 Pi 内置 grep
 undo_last_change   # 仍需要 path
 ```
@@ -41,12 +41,14 @@ undo_last_change   # 仍需要 path
 
 ## 配置
 
-上面的工具默认全部开启。用 `/hashline-config` 开关工具和其它设置，配置保存在 `~/.config/pi-hashline-edit-pro/config.json`（或 `$PI_HASHLINE_DIR/config.json`），与上游共用。例如只保留五个核心工具：
+配置保存在 `~/.config/pi-hashline-edit-pro/config.json`（或 `$PI_HASHLINE_DIR/config.json`），与上游共用，用 `/hashline-config` 修改。
+
+有一项默认值与上游不同：`copy`、`move`、`replace_match` 默认**关闭**，所以默认工具是 `read`、`grep`、`replace`、`insert`、`undo_last_change`。加载时，只有当配置里还没有 `copyMoveEnabled`、`replaceMatchEnabled` 时，包装层才写入 `false`；已有的显式设置不会被改动。要开启它们，在 `/hashline-config` 里切换，或者写入：
 
 ```json
 {
-  "copyMoveEnabled": false,
-  "replaceMatchEnabled": false
+  "copyMoveEnabled": true,
+  "replaceMatchEnabled": true
 }
 ```
 
@@ -56,7 +58,7 @@ undo_last_change   # 仍需要 path
 
 - `replacement_lines` / `lines` 数组改为 `text` 字符串；`[]` 改为 `""`。
 - `anchor_grep` 改名为 `grep`，并替代 Pi 内置 `grep`。
-- 新增 `replace_match`、`copy`、`move`，都可以在 `/hashline-config` 里开关。
+- 新增 `replace_match`、`copy`、`move`，本包装层默认关闭，可在 `/hashline-config` 里开启。
 - 纯删除会校验首尾两行；中间从未读到的行按磁盘上的当前内容删除。
 
 升级后请新建 Pi 会话，确保模型获得新的 Schema 与使用说明。
@@ -68,15 +70,15 @@ undo_last_change   # 仍需要 path
 
 | 配置 | Lean | 上游 | 节省 |
 | --- | ---: | ---: | ---: |
-| 默认（8 个工具） | **867** | 4,732 | **3,865（81.7%）** |
-| 关闭 copy/move 与 replace_match | **511** | 2,114 | **1,603（75.8%）** |
+| 默认：五个核心工具 | **511** | 2,114 | **1,603（75.8%）** |
+| 开启全部八个工具 | **867** | 4,732 | **3,865（81.7%）** |
 
-- **默认 Lean：**`read` (81) + `grep` (121) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
-- **默认 上游：**`read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
-- **五工具 Lean：**`read` (81) + `grep` (121) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
-- **五工具 上游：**`read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **默认：五个核心工具 Lean：**`read` (81) + `grep` (121) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
+- **默认：五个核心工具 上游：**`read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
+- **开启全部八个工具 Lean：**`read` (81) + `grep` (121) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
+- **开启全部八个工具 上游：**`read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
 
-测量方式：在隔离的模拟 Pi 会话中注册扩展，使用空白配置目录，统计 `session_start` 之后处于激活状态的工具。每个工具计入名称、描述、参数 Schema、snippet 和 guidelines。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
+测量环境为 Pi 1.2.0 的独立临时进程、空白工作目录与空白配置。排除内置工具、Skills、上下文文件、会话历史、用户消息、无关扩展、运行时 UI 与 Slash Commands；计入扩展的 `before_agent_start` 注入。Token 是按 `ceil(字符数 / 4)` 计算的固定字符代理估算，并非模型 tokenizer 实际计费值。
 <!-- token-benchmark:benchmark:end -->
 
 ## 版本
