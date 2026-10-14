@@ -47,4 +47,11 @@ test("keeps explicit user choices and other settings", () => {
 
 test("leaves a corrupt config for upstream to handle", () => {
   assert.equal(loadWith("{not json"), "{not json");
+  // Upstream treats a non-boolean autoRead as corrupt and quarantines the file.
+  assert.equal(loadWith('{"autoRead":"bad"}'), '{"autoRead":"bad"}');
+});
+
+test("never rewrites an existing key, even with a non-boolean value", () => {
+  const initial = '{"copyMoveEnabled":null,"replaceMatchEnabled":"yes"}';
+  assert.equal(loadWith(initial), initial);
 });

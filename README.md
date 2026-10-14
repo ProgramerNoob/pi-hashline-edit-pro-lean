@@ -70,12 +70,12 @@ Measured against upstream `pi-hashline-edit-pro@6.4.5`:
 
 | Configuration | Lean | Upstream | Saved |
 | --- | ---: | ---: | ---: |
-| Default: five core tools | **511** | 2,114 | **1,603 (75.8%)** |
-| All eight tools on | **867** | 4,732 | **3,865 (81.7%)** |
+| Default: five core tools | **503** | 2,114 | **1,611 (76.2%)** |
+| All eight tools on | **859** | 4,732 | **3,873 (81.8%)** |
 
-- **Default: five core tools Lean:** `read` (81) + `grep` (121) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
+- **Default: five core tools Lean:** `read` (81) + `grep` (113) + `replace` (128) + `insert` (118) + `undo_last_change` (63)
 - **Default: five core tools upstream:** `read` (349) + `grep` (502) + `replace` (573) + `insert` (489) + `undo_last_change` (201)
-- **All eight tools on Lean:** `read` (81) + `grep` (121) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
+- **All eight tools on Lean:** `read` (81) + `grep` (113) + `replace` (128) + `replace_match` (117) + `insert` (118) + `copy` (121) + `move` (118) + `undo_last_change` (63)
 - **All eight tools on upstream:** `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271)
 
 Measured with Pi 1.2.0 in separate temporary processes with empty working directories and configuration. Built-in tools, skills, context files, session history, user messages, unrelated extensions, runtime UI, and slash commands are excluded; `before_agent_start` additions are included. Tokens are a fixed character-proxy estimate using `ceil(characters / 4)`, not provider tokenizer billing.

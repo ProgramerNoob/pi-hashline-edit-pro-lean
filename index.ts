@@ -57,7 +57,7 @@ const GUIDE: Record<string, string> = {
   copy: "Destination must be outside the source range; to append, anchor the file's last line with direction after.",
   move: "Destination must be outside the source range; re-read the source file after a cross-file move.",
   undo_last_change: "Needs path. Only the latest edit per file; write clears it. Re-read if stale.",
-  grep: "Use returned anchors directly in edits; narrow path, glob, or limit; literal: true for metacharacters.",
+  grep: "Use returned anchors directly in edits; narrow path, glob, or limit.",
 };
 
 const CMD_DESC: Record<string, string> = {
@@ -163,7 +163,9 @@ function seedLeanDefaults(): void {
   }
   if (!config || typeof config !== "object" || Array.isArray(config)) return;
   const record = config as Record<string, unknown>;
-  const missing = Object.keys(LEAN_DEFAULTS).filter((key) => typeof record[key] !== "boolean");
+  // Same corruption rule as upstream parseConfig: let upstream quarantine it.
+  if (record.autoRead !== undefined && typeof record.autoRead !== "boolean") return;
+  const missing = Object.keys(LEAN_DEFAULTS).filter((key) => !(key in record));
   if (missing.length === 0) return;
   for (const key of missing) record[key] = LEAN_DEFAULTS[key];
   try {
