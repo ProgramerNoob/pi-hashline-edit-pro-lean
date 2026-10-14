@@ -88,7 +88,7 @@ undo_last_change   # 仍需要 path
 
 ## 版本
 
-- Lean 包装层：`6.4.5-lean.1`
+- Lean 包装层：`6.4.5-lean.2`
 - 上游运行时：`pi-hashline-edit-pro@6.4.5`
 - Pi：`>=0.99.0`
 - Node.js：`>=22.19.0`

@@ -5,7 +5,7 @@
 <!-- token-benchmark:summary:end -->
 > [See my full setup for Pi](https://github.com/kunkun9527/my-lean-pi-setup)
 
-[简体中文](README.zh-CN.md)
+[简体中文](https://github.com/kunkun9527/pi-hashline-edit-pro-lean/blob/main/README_zh-CN.md)
 
 A token-lean Pi wrapper around [`pi-hashline-edit-pro`](https://github.com/YuGiMob/pi-hashline-edit-pro). It pins the complete upstream `6.4.5` runtime while shortening persistent provider-facing tool text.
 
@@ -88,7 +88,7 @@ Start a fresh Pi session after upgrading so the model receives the new schemas a
 
 ## Versions
 
-- Lean wrapper: `6.4.5-lean.1`
+- Lean wrapper: `6.4.5-lean.2`
 - Upstream runtime: `pi-hashline-edit-pro@6.4.5`
 - Pi: `>=0.99.0`
 - Node.js: `>=22.19.0`
