@@ -1,5 +1,10 @@
 # pi-hashline-edit-pro-lean
 
+<!-- token-benchmark:summary:start -->
+> **Token benchmark: Lean 503, upstream `pi-hashline-edit-pro@6.4.5` 2,114 — 76.2% fewer.**
+<!-- token-benchmark:summary:end -->
+> [See my full setup for Pi](https://github.com/kunkun9527/my-lean-pi-setup)
+
 [简体中文](README.zh-CN.md)
 
 A token-lean Pi wrapper around [`pi-hashline-edit-pro`](https://github.com/YuGiMob/pi-hashline-edit-pro). It pins the complete upstream `6.4.5` runtime while shortening persistent provider-facing tool text.

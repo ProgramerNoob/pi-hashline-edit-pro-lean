@@ -1,5 +1,10 @@
 # pi-hashline-edit-pro-lean
 
+<!-- token-benchmark:summary:start -->
+> **Token 基准：Lean 503，上游 `pi-hashline-edit-pro@6.4.5` 2,114，减少 76.2%。**
+<!-- token-benchmark:summary:end -->
+> **完整配置参考：** [查看 Pi Lean Setup](https://github.com/kunkun9527/my-lean-pi-setup)
+
 [English](README.md)
 
 [`pi-hashline-edit-pro`](https://github.com/YuGiMob/pi-hashline-edit-pro) 的 Token 精简版 Pi 包装层。当前固定使用完整的上游 `6.4.5` 运行时，只精简长期进入模型上下文的工具文本。
