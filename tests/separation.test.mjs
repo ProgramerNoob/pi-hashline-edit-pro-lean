@@ -42,17 +42,23 @@ function createPi(registered, commands) {
   };
 }
 
-function assertNoDescriptions(value) {
-  if (Array.isArray(value)) {
-    for (const item of value) assertNoDescriptions(item);
-    return;
-  }
-  if (!value || typeof value !== "object") return;
-  assert.equal("description" in value, false);
-  for (const child of Object.values(value)) assertNoDescriptions(child);
+// Only the lean range/insert-edge/transfer field descriptions survive; everything else is stripped.
+const KEPT_DESCRIPTIONS = {
+  replace: ["properties.remove_from", "properties.remove_to", "properties.text"],
+  replace_match: ["properties.replace_from", "properties.replace_to"],
+  insert: ["properties.text"],
+  copy: ["properties.source_from", "properties.source_to", "properties.anchor"],
+};
+
+function descriptionPaths(value, at = []) {
+  if (!value || typeof value !== "object") return [];
+  const own = "description" in value ? [at.join(".")] : [];
+  return own.concat(
+    Object.entries(value).flatMap(([key, child]) => descriptionPaths(child, [...at, key])),
+  );
 }
 
-test("registers the upstream 6.4.5 tools with lean model-facing text", () => {
+test("registers the upstream 6.4.6 tools with lean model-facing text", () => {
   const registered = [];
   const commands = [];
   const pi = createPi(registered, commands);
@@ -66,10 +72,13 @@ test("registers the upstream 6.4.5 tools with lean model-facing text", () => {
   for (const tool of registered) {
     assert.equal(typeof tool.description, "string");
     assert.ok(tool.description.length < 100, `${tool.name} description is not lean`);
-    assert.equal("promptSnippet" in tool, false);
-    assert.ok(Array.isArray(tool.promptGuidelines));
-    assert.ok(tool.promptGuidelines.length > 0);
-    assertNoDescriptions(tool.parameters);
+    // Pi lists a tool under "Available tools" only when it has a snippet.
+    assert.equal(typeof tool.promptSnippet, "string");
+    assert.ok(tool.promptSnippet.length < 50, `${tool.name} snippet is not lean`);
+    assert.ok(tool.promptGuidelines === undefined || Array.isArray(tool.promptGuidelines));
+    assert.deepEqual(descriptionPaths(tool.parameters), KEPT_DESCRIPTIONS[tool.name] ?? []);
+    // The newline note is stated once in the shared edit rule, not per field.
+    assert.ok(!JSON.stringify(tool.parameters).includes("A trailing line break"));
     assert.ok(Reflect.ownKeys(tool.parameters).includes("~kind"));
     assert.ok(Object.values(tool.parameters.properties).every((property) =>
       Reflect.ownKeys(property).includes("~kind"),
@@ -100,6 +109,20 @@ test("registers the upstream 6.4.5 tools with lean model-facing text", () => {
   for (const stale of ["replacement_lines", "anchor_grep", "E_AUTO_READ_ALL", "one string per item"]) {
     assert.equal(visible.includes(stale), false, `model-visible text mentions ${stale}`);
   }
+  // Lean text only condenses upstream: no routing to bash or scripts of its own.
+  for (const own of [/\bbash\b/i, /\bscripts?\b/i]) {
+    assert.equal(own.test(visible), false, `model-visible text adds ${own}`);
+  }
+  // Upstream's partial-line route on replace and its cross-file move undo rule follow the toggles.
+  assert.ok(replace.description.includes("replace_match"));
+  assert.ok(undo.promptGuidelines.some((line) => line.includes("cross-file move")));
+  // Upstream repeats its tool-preference line on every tool; lean keeps it once, on read.
+  assert.deepEqual(
+    registered
+      .filter((tool) => (tool.promptGuidelines ?? []).some((line) => line.startsWith("Remember to use the hashline tools")))
+      .map((tool) => tool.name),
+    ["read"],
+  );
 });
 
 test("trims upstream command descriptions without dropping commands", () => {

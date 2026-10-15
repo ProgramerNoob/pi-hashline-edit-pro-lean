@@ -60,13 +60,9 @@ test("preserves upstream 6.4.5 read, replace, insert, undo, and write-hook behav
   const ctx = { cwd, signal, ui: { notify() {} } };
   await handlers.session_start[0]({}, ctx);
   assert.equal(activeTools.includes("edit"), false);
-  // Anchored grep owns the `grep` name; lean seeds copy/move and
-  // replace_match off, and upstream's config refresh deactivates them.
-  for (const name of ["grep", "replace", "insert", "undo_last_change", "bash"]) {
+  // Anchored grep owns the `grep` name; all eight tools keep upstream's default (on).
+  for (const name of ["grep", "replace", "replace_match", "insert", "copy", "move", "undo_last_change", "bash"]) {
     assert.equal(activeTools.includes(name), true, `${name} should be active`);
-  }
-  for (const name of ["replace_match", "copy", "move"]) {
-    assert.equal(activeTools.includes(name), false, `${name} should be off by default`);
   }
 
   const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));

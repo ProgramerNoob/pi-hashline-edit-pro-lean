@@ -1,22 +1,21 @@
-// pi-hashline-edit-pro-lean: full pi-hashline-edit-pro@6.4.5 runtime,
+// pi-hashline-edit-pro-lean: full pi-hashline-edit-pro@6.4.6 runtime,
 // with concise provider-facing tool/command text and local collapsed-display support.
 //
 // Design: delegate 100% of the runtime to upstream by calling its default
-// export with a proxied `pi`. Only model-visible text differs: short tool
-// descriptions, one-line guidelines, parameter schemas without per-field
-// descriptions, and short command descriptions. Upstream behavior and error
-// semantics stay intact. One default differs: copy/move and replace_match
-// start off (seeded into the shared upstream config, so /hashline-config
-// shows and toggles the real state).
+// export with a proxied `pi`. Only model-visible text differs, and it is
+// upstream's own wording condensed: short tool descriptions and snippets,
+// guidelines kept only where a slip silently produces a wrong edit, and
+// parameter schemas without per-field descriptions except upstream's text for
+// range bounds, copy/move source and destination, and replace/insert text.
+// No rule of our own is added; defaults, behavior and error semantics are
+// upstream's.
 //
 // 6.x contract: replace/insert take one exact `text` string ("" deletes in
 // replace); the anchored search tool is named `grep`. Edit tools resolve the
 // file from anchors alone; undo_last_change still requires `path`.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import upstream from "pi-hashline-edit-pro";
-import { configPath } from "pi-hashline-edit-pro/src/paths";
+import { TEXT_ENDING_NOTE } from "pi-hashline-edit-pro/src/constants";
 
 const COLLAPSED_DISPLAY_SERVICE = Symbol.for(
   "@local/pi-collapsed-tools.display-service.v1",
@@ -38,26 +37,95 @@ function decorateWithCollapsedDisplay<T extends CollapsedDisplayTool>(tool: T): 
     : tool;
 }
 
+// Rule of thumb: a rule upstream already enforces at runtime (an error or hint
+// that names the fix) is not repeated here; the model pays for it only when it
+// trips it. Enforced upstream: range lines must be served before a non-empty
+// replace (E_RANGE_STALE lists fresh anchors), same-message ranges are disjoint
+// (E_BATCH_OVERLAP), path must match anchor ownership (E_BAD_SHAPE), anchor│
+// prefixes in text are stripped (W_*), a copy/move gap inside the source is
+// rejected (E_BAD_SHAPE), stale/dead anchors fail (E_STALE_ANCHOR), undo
+// with nothing to undo (E_UNDO_*). A rule stays when breaking it silently
+// gives a wrong result or loses something the error cannot give back (the
+// single undo slot, escape decoding, the anchor-row format).
 const DESC: Record<string, string> = {
-  read: "Read a file with 4-char HASH anchors; supports paging and images.",
-  replace: "Replace lines by bare 4-char HASH anchors; anchor-only, no path.",
-  replace_match: "Replace an exact substring inside an anchored line range; anchor-only.",
-  insert: "Insert text around a bare 4-char HASH anchor; anchor-only.",
-  copy: "Copy an anchored line range to another anchor, in any file.",
-  move: "Move an anchored line range to another anchor, in any file.",
-  undo_last_change: "Undo the most recent hashline edit for a file; needs path.",
-  grep: "Search text with ripgrep; hits carry anchors for direct editing.",
+  read: "Read a file as anchor│content rows (4-char anchors); supports paging and images.",
+  replace: "Replace whole anchored lines.",
+  replace_match: "Replace exact fragments within anchored lines.",
+  insert: "Insert new lines before or after an anchor.",
+  copy: "Copy an anchored block verbatim, within or across files.",
+  move: "Move an anchored block verbatim, within or across files.",
+  undo_last_change: "Undo a file's latest hashline edit.",
+  grep: "Search files with ripgrep; hits are N:│ anchor│content rows (N-│ context), editable without a read.",
+};
+// Upstream's replace description points partial-line edits to replace_match
+// and drops that sentence while replace_match is off; follow it.
+const REPLACE_MATCH_ROUTE = " For part of a line, use replace_match.";
+
+// Pi lists only tools that have a snippet under "Available tools" in the system prompt.
+const SNIPPET: Record<string, string> = {
+  read: "Read files with line anchors",
+  replace: "Replace anchored lines",
+  replace_match: "Replace fragments in lines",
+  insert: "Insert lines at an anchor",
+  copy: "Copy an anchored block",
+  move: "Move an anchored block",
+  undo_last_change: "Undo a file's last edit",
+  grep: "Search with anchors",
 };
 
-const GUIDE: Record<string, string> = {
-  read: "Use fresh anchors from read output; re-read after edits.",
-  replace: "Anchors resolve the file; do not pass path unless parameters list it. text is the exact raw content, no HASH prefixes; \"\" deletes. Same-file calls in one message form one batch; follow +anchor rows in the diff. Re-read after failure.",
-  replace_match: "old_string is only the changing fragment; every match in the range is replaced. Whole-line changes use replace.",
-  insert: "Anchor resolves the file; do not pass path unless parameters list it. text is the exact raw content; the anchor line stays. Re-read after failure.",
-  copy: "Destination must be outside the source range; to append, anchor the file's last line with direction after.",
-  move: "Destination must be outside the source range; re-read the source file after a cross-file move.",
-  undo_last_change: "Needs path. Only the latest edit per file; write clears it. Re-read if stale.",
-  grep: "Use returned anchors directly in edits; narrow path, glob, or limit.",
+// Condensed upstream guidelines (tool-prompts/*-guidelines.md and the shared
+// ones in src/edit-common.ts), each line with its own label. `up` is the
+// tool's upstream guideline list, so lines upstream shows only under some
+// settings follow those settings. Rules shared by every edit tool sit on
+// replace, which is always active; copy/move rules sit on copy (one toggle).
+const has = (up: string[], marker: string) => up.some((line) => line.includes(marker));
+const GUIDE: Record<string, (up: string[]) => string[]> = {
+  read: (up) =>
+    has(up, "post-edit diff")
+      ? ["read: after an edit, + and space diff rows carry live anchors and - rows are dead; read again only for anchors you lack."]
+      : has(up, "call again after an edit")
+        ? ["read: call again after an edit when you need anchors you lack."]
+        : [],
+  replace: (up) => [
+    "replace: one line uses the same anchor twice. A pure deletion checks only the boundary lines and removes the interior as it stands.",
+    `edit tools: text is the exact content without anchor prefixes; escapes are decoded once, so \\uXXXX is the character and \\\\uXXXX stays literal. ${TEXT_ENDING_NOTE}`,
+    "edit tools: same-file calls in one message form one batch; one undo reverts all.",
+    ...(has(up, "Script calls apply immediately")
+      ? ["edit tools: codemode script calls apply immediately in order, and only the most recent edit per file is undoable."]
+      : []),
+  ],
+  replace_match: () => [
+    "replace_match: old_string is only the fragment that changes; every match in the range changes, so scope the range to the lines that should change. If old_string covers the line except indentation and trailing punctuation, use replace.",
+  ],
+  insert: () => ["insert: check the diff for a missing or extra blank row at block edges."],
+  copy: () => [
+    "copy/move: move takes copy's fields. To append to a file, anchor its last line with direction after, not a marker line or the block's own end. Only the source's boundary rows and the destination line need reading.",
+  ],
+  move: () => [],
+  undo_last_change: (up) => [
+    "undo_last_change: one slot per file; undo before any other edit or write to that file.",
+    ...(has(up, "cross-file `move`")
+      ? ["undo_last_change: undo a cross-file move on both files; undoing one side leaves lines duplicated or missing."]
+      : []),
+  ],
+  grep: () => [
+    "grep: set literal: true when the pattern contains regex metacharacters. A match shown as a ... fragment has an anchor covering the whole line.",
+  ],
+};
+// Upstream lines passed through verbatim: the tool-preference line (upstream
+// repeats it on every tool; kept once, on read) and codemode-only lines.
+const PASS_THROUGH = (line: string, name: string) =>
+  (name === "read" && line.startsWith("Remember to use the hashline tools")) || line.includes("codemode script");
+
+// Field descriptions that survive stripping, kept as upstream wrote them except
+// TEXT_ENDING_NOTE, which the shared edit rule states once. Without them the model
+// guesses range bounds (off-by-one), adds blank lines at insert edges, or puts a
+// copy anchor in the wrong file. move has the same fields; the copy/move rule says so.
+const PARAM_DESC: Record<string, string[]> = {
+  replace: ["remove_from", "remove_to", "text"],
+  replace_match: ["replace_from", "replace_to"],
+  insert: ["text"],
+  copy: ["source_from", "source_to", "anchor"],
 };
 
 const CMD_DESC: Record<string, string> = {
@@ -81,13 +149,6 @@ type AnyCommand = {
   [key: string]: unknown;
 };
 
-function toGuidelineLines(text: string): string[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
 function stripDescriptions(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripDescriptions);
   if (!value || typeof value !== "object") return value;
@@ -103,14 +164,43 @@ function stripDescriptions(value: unknown): unknown {
   return out;
 }
 
+// Puts upstream's descriptions of the kept fields back onto a stripped copy.
+function keepParamDescriptions(
+  original: Record<string, unknown>,
+  stripped: Record<string, unknown>,
+  fields: string[] | undefined,
+): Record<string, unknown> {
+  type Props = Record<string, Record<string, unknown>> | undefined;
+  const from = original.properties as Props;
+  const to = stripped.properties as Props;
+  for (const field of fields ?? []) {
+    const text = from?.[field]?.description;
+    if (to?.[field] && typeof text === "string") to[field].description = text.replace(` ${TEXT_ENDING_NOTE}`, "");
+  }
+  return stripped;
+}
+
 function trimTool(tool: AnyTool): AnyTool {
   const out: AnyTool = { ...tool };
   const name = out.name ?? "";
-  if (DESC[name]) out.description = DESC[name];
-  delete out.promptSnippet;
-  if (GUIDE[name]) out.promptGuidelines = toGuidelineLines(GUIDE[name]).map((line) => `${name}: ${line}`);
-  if (out.parameters && PARAMS.has(name)) {
-    out.parameters = stripDescriptions(out.parameters) as Record<string, unknown>;
+  if (!PARAMS.has(name)) return out;
+  const upstreamDesc = tool.description ?? "";
+  // On gated models or with anchorGrepEnabled off, upstream registers Pi's plain
+  // read/grep (no anchors); they keep their own text.
+  if ((name === "read" || name === "grep") && !upstreamDesc.includes("anchor│")) return out;
+  const upstreamGuide = tool.promptGuidelines ?? [];
+  const upstreamLines = Array.isArray(upstreamGuide) ? upstreamGuide : [upstreamGuide];
+  out.description = DESC[name] + (name === "replace" && upstreamDesc.includes("`replace_match`") ? REPLACE_MATCH_ROUTE : "");
+  out.promptSnippet = SNIPPET[name];
+  const lines = [...(GUIDE[name]?.(upstreamLines) ?? []), ...upstreamLines.filter((line) => PASS_THROUGH(line, name))];
+  if (lines.length > 0) out.promptGuidelines = lines;
+  else delete out.promptGuidelines;
+  if (out.parameters) {
+    out.parameters = keepParamDescriptions(
+      out.parameters,
+      stripDescriptions(out.parameters) as Record<string, unknown>,
+      PARAM_DESC[name],
+    );
   }
   return out;
 }
@@ -145,44 +235,9 @@ function leanPi(pi: ExtensionAPI): ExtensionAPI {
   });
 }
 
-// Lean defaults for settings the user has never set. Upstream defaults both
-// to true; writing only missing keys keeps any explicit user choice.
-const LEAN_DEFAULTS: Record<string, boolean> = {
-  copyMoveEnabled: false,
-  replaceMatchEnabled: false,
-};
-
-function seedLeanDefaults(): void {
-  const file = configPath();
-  let config: unknown = {};
-  try {
-    config = JSON.parse(readFileSync(file, "utf8"));
-  } catch (error) {
-    // Unreadable or corrupt files are left for upstream to report or quarantine.
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return;
-  }
-  if (!config || typeof config !== "object" || Array.isArray(config)) return;
-  const record = config as Record<string, unknown>;
-  // Same corruption rule as upstream parseConfig: let upstream quarantine it.
-  if (record.autoRead !== undefined && typeof record.autoRead !== "boolean") return;
-  const missing = Object.keys(LEAN_DEFAULTS).filter((key) => !(key in record));
-  if (missing.length === 0) return;
-  for (const key of missing) record[key] = LEAN_DEFAULTS[key];
-  try {
-    mkdirSync(dirname(file), { recursive: true });
-    const temp = `${file}.${process.pid}.lean.tmp`;
-    writeFileSync(temp, `${JSON.stringify(record, null, 2)}\n`);
-    renameSync(temp, file);
-  } catch {
-    // Read-only config: upstream defaults apply.
-  }
-}
-
-// Full upstream lifecycle (session registry, auto-read-all, batch,
-// config overlay, write hook) runs unchanged; only the text the model
-// sees is trimmed by the proxy above. Defaults are seeded before upstream
-// reads the config on session_start.
+// Full upstream lifecycle (session registry, auto-read-all, batch, config,
+// defaults, write hook) runs unchanged; only the text the model sees is
+// trimmed by the proxy above.
 export default function (pi: ExtensionAPI): void {
-  seedLeanDefaults();
   upstream(leanPi(pi));
 }
