@@ -192,14 +192,17 @@ test("prepareArguments repairs retired edit field names and a redundant ref, cha
   const both = valid(replace, assertReq, { replace_from: "Uf2a", replace_to: "Uf2a", replacement_text: "z" });
   assert.deepEqual([both.remove_from, both.remove_to, both.text], ["Uf2a", "Uf2a", "z"]);
 
-  // ref is dropped only when it names the same file as path (also as a path suffix).
-  for (const ref of ["package.json", "./package.json"]) {
-    const dropped = valid(replace, assertReq, { ...range, text: "x", path: "C:/proj\\package.json", ref });
+  // ref is dropped only when it spells the same path (separators and a leading ./ aside).
+  for (const [path, ref] of [["src/a.ts", "./src/a.ts"], ["C:/proj\\package.json", "C:/proj/package.json"]]) {
+    const dropped = valid(replace, assertReq, { ...range, text: "x", path, ref });
     assert.equal("ref" in dropped, false);
   }
-  const kept = replace.prepareArguments({ ...range, text: "x", path: "src/a.ts", ref: "package.json" });
-  assert.equal(kept.ref, "package.json");
-  assert.throws(() => assertReq(kept), /unknown or unsupported fields: ref/);
+  // A mere suffix may be a different file (src/a.ts vs ./a.ts), so it is kept and rejected.
+  for (const [path, ref] of [["src/a.ts", "package.json"], ["src/a.ts", "a.ts"]]) {
+    const kept = replace.prepareArguments({ ...range, text: "x", path, ref });
+    assert.equal(kept.ref, ref);
+    assert.throws(() => assertReq(kept), /unknown or unsupported fields: ref/);
+  }
   assert.equal("ref" in replace.prepareArguments({ ...range, text: "x", ref: "package.json" }), true);
 
   // Explicit text is never overwritten; the conflicting alias stays and is rejected.

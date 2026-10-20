@@ -16,7 +16,7 @@ With only this extension enabled, its recurring model-facing initialization cont
 
 | Variant | Tool and prompt contribution | Total |
 | --- | --- | ---: |
-| Lean `pi-hashline-edit-pro-lean@6.4.6-lean.2` | `read` (147) + `grep` (146) + `replace` (254) + `replace_match` (195) + `insert` (131) + `copy` (216) + `move` (99) + `undo_last_change` (94) | **1,282** |
+| Lean `pi-hashline-edit-pro-lean@6.4.6-lean.3` | `read` (147) + `grep` (146) + `replace` (254) + `replace_match` (195) + `insert` (131) + `copy` (216) + `move` (99) + `undo_last_change` (94) | **1,282** |
 | Upstream `pi-hashline-edit-pro@6.4.6` | `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271) | **4,732** |
 
 This saves **3,450 tokens (72.9%)**.
@@ -86,7 +86,7 @@ Start a fresh Pi session after upgrading so the model receives the new schemas a
 
 ## Versions
 
-- Lean wrapper: `6.4.6-lean.2`
+- Lean wrapper: `6.4.6-lean.3`
 - Upstream runtime: `pi-hashline-edit-pro@6.4.6`
 - Pi: `>=0.99.0`
 - Node.js: `>=22.19.0`

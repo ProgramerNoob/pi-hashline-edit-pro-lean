@@ -155,7 +155,7 @@ type AnyCommand = {
 // send the retired 4.x field names: `replacement_text` / `replacement_lines`
 // for replace and `lines` for insert are the exact-text field `text` (an array
 // is joined by upstream's own prepare). Never overwrites a different `text`.
-// `ref` is not a field; it is dropped only when it names the same file as `path`.
+// `ref` is not a field; it is dropped only when it spells the same path as `path`.
 // remove_to is not defaulted: upstream documents it as required (a single line
 // repeats the anchor), and a missing path or anchor cannot be inferred.
 const TEXT_ALIASES: Record<string, string[]> = {
@@ -163,11 +163,9 @@ const TEXT_ALIASES: Record<string, string[]> = {
   insert: ["lines"],
 };
 
-const sameFile = (ref: string, path: string) => {
-  const a = ref.replaceAll("\\", "/").replace(/^\.\//, "");
-  const b = path.replaceAll("\\", "/");
-  return a.length > 0 && (b === a || b.endsWith(`/${a}`));
-};
+// Spelling-only differences (separators, a leading ./); a bare file name is not assumed to be path's.
+const normalizePath = (p: string) => p.replaceAll("\\", "/").replace(/^\.\//, "");
+const sameFile = (ref: string, path: string) => ref.length > 0 && normalizePath(ref) === normalizePath(path);
 
 function repairEditArguments(name: string, args: unknown): unknown {
   if (!args || typeof args !== "object" || Array.isArray(args)) return args;

@@ -1,6 +1,6 @@
 {
   "name": "pi-hashline-edit-pro-lean",
-  "version": "6.4.6-lean.2",
+  "version": "6.4.6-lean.3",
   "type": "module",
   "description": "Token-lean wrapper over pi-hashline-edit-pro@6.4.6: full anchor-only runtime, upstream's model-facing text condensed.",
   "license": "MIT",
