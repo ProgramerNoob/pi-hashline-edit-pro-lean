@@ -16,7 +16,7 @@
 
 | 版本 | 工具与 Prompt 构成 | 合计 |
 | --- | --- | ---: |
-| Lean `pi-hashline-edit-pro-lean@6.4.6-lean.1` | `read` (147) + `grep` (146) + `replace` (254) + `replace_match` (195) + `insert` (131) + `copy` (216) + `move` (99) + `undo_last_change` (94) | **1,282** |
+| Lean `pi-hashline-edit-pro-lean@6.4.6-lean.2` | `read` (147) + `grep` (146) + `replace` (254) + `replace_match` (195) + `insert` (131) + `copy` (216) + `move` (99) + `undo_last_change` (94) | **1,282** |
 | 上游 `pi-hashline-edit-pro@6.4.6` | `read` (388) + `grep` (514) + `replace` (644) + `replace_match` (953) + `insert` (524) + `copy` (731) + `move` (707) + `undo_last_change` (271) | **4,732** |
 
 节省 **3,450 tokens（72.9%）**。
@@ -58,6 +58,8 @@ undo_last_change   # 仍需要 path
 
 必须复制 `read` 或 `grep` 返回的四字符锚点，绝不要猜测。`replace` 和 `insert` 接收一个原样写入的 `text` 字符串，字符串里的换行就是分行；`replace` 中 `text: ""` 表示删除所选范围。同一条消息里对同一文件的编辑会合并成一个 batch，共用一个 diff 和一次撤销。
 
+参数容错：校验之前，`replace` 把已废弃的 `replacement_text` / `replacement_lines`、`insert` 把 `lines` 当作 `text`，与 `path` 指向同一文件的 `ref` 会被丢弃。有歧义的输入（包括缺 `remove_to`、`path` 或锚点）仍按校验报错。
+
 ## 配置
 
 配置保存在 `~/.config/pi-hashline-edit-pro/config.json`（或 `$PI_HASHLINE_DIR/config.json`），与上游共用，用 `/hashline-config` 修改。
@@ -84,7 +86,7 @@ undo_last_change   # 仍需要 path
 
 ## 版本
 
-- Lean 包装层：`6.4.6-lean.1`
+- Lean 包装层：`6.4.6-lean.2`
 - 上游运行时：`pi-hashline-edit-pro@6.4.6`
 - Pi：`>=0.99.0`
 - Node.js：`>=22.19.0`

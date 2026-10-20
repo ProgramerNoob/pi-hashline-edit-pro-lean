@@ -149,6 +149,44 @@ type AnyCommand = {
   [key: string]: unknown;
 };
 
+// Argument repair, run by Pi before schema validation (`prepareArguments`),
+// chained after upstream's own. Only unambiguous slips are fixed; everything
+// else is returned as is for upstream's validation to report. Models still
+// send the retired 4.x field names: `replacement_text` / `replacement_lines`
+// for replace and `lines` for insert are the exact-text field `text` (an array
+// is joined by upstream's own prepare). Never overwrites a different `text`.
+// `ref` is not a field; it is dropped only when it names the same file as `path`.
+// remove_to is not defaulted: upstream documents it as required (a single line
+// repeats the anchor), and a missing path or anchor cannot be inferred.
+const TEXT_ALIASES: Record<string, string[]> = {
+  replace: ["replacement_text", "replacement_lines"],
+  insert: ["lines"],
+};
+
+const sameFile = (ref: string, path: string) => {
+  const a = ref.replaceAll("\\", "/").replace(/^\.\//, "");
+  const b = path.replaceAll("\\", "/");
+  return a.length > 0 && (b === a || b.endsWith(`/${a}`));
+};
+
+function repairEditArguments(name: string, args: unknown): unknown {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return args;
+  const out = { ...(args as Record<string, unknown>) };
+  for (const alias of TEXT_ALIASES[name] ?? []) {
+    if (alias in out && out.text === undefined) {
+      out.text = out[alias];
+      delete out[alias];
+    }
+  }
+  if (typeof out.ref === "string" && typeof out.path === "string" && sameFile(out.ref, out.path)) delete out.ref;
+  return out;
+}
+
+function chainPrepare(name: string, upstream: unknown): (args: unknown) => unknown {
+  const prepare = typeof upstream === "function" ? (upstream as (args: unknown) => unknown) : (args: unknown) => args;
+  return (args) => prepare(repairEditArguments(name, prepare(args)));
+}
+
 function stripDescriptions(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stripDescriptions);
   if (!value || typeof value !== "object") return value;
@@ -192,6 +230,7 @@ function trimTool(tool: AnyTool): AnyTool {
   const upstreamLines = Array.isArray(upstreamGuide) ? upstreamGuide : [upstreamGuide];
   out.description = DESC[name] + (name === "replace" && upstreamDesc.includes("`replace_match`") ? REPLACE_MATCH_ROUTE : "");
   out.promptSnippet = SNIPPET[name];
+  if (name in TEXT_ALIASES) out.prepareArguments = chainPrepare(name, tool.prepareArguments);
   const lines = [...(GUIDE[name]?.(upstreamLines) ?? []), ...upstreamLines.filter((line) => PASS_THROUGH(line, name))];
   if (lines.length > 0) out.promptGuidelines = lines;
   else delete out.promptGuidelines;

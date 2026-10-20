@@ -162,3 +162,78 @@ test("uses the optional local collapsed-display service without installing one",
   assert.ok(registered.every((tool) => tool.collapsedDisplayDecorated === true));
   assert.equal(globalThis[collapsedDisplayService], undefined);
 });
+
+// Models still send retired field names or stray fields; prepareArguments repairs only
+// unambiguous slips before validation and leaves the rest for upstream to reject.
+test("prepareArguments repairs retired edit field names and a redundant ref, chained after upstream's", async () => {
+  const { Value } = await jiti.import("typebox/value");
+  const { assertReq, assertInsertReq } = await jiti.import("pi-hashline-edit-pro/src/payload-contract");
+  const registered = [];
+  hashlineExtension(createPi(registered, []));
+  const replace = registered.find((tool) => tool.name === "replace");
+  const insert = registered.find((tool) => tool.name === "insert");
+  const range = { remove_from: "Uf2a", remove_to: "Uf2a" };
+  // Passes both the schema and upstream's runtime shape check.
+  const valid = (tool, assertShape, args) => {
+    const prepared = tool.prepareArguments(args);
+    assert.equal(Value.Check(tool.parameters, prepared), true);
+    assertShape(prepared);
+    return prepared;
+  };
+
+  // replacement_text / replacement_lines -> text (lines joined by upstream's own prepare).
+  assert.equal(valid(replace, assertReq, { ...range, replacement_text: "x\ny" }).text, "x\ny");
+  const lines = valid(replace, assertReq, { ...range, replacement_lines: ["x", "y"] });
+  assert.equal(lines.text, "x\ny");
+  assert.equal("replacement_lines" in lines, false);
+  // insert `lines` -> text.
+  assert.equal(valid(insert, assertInsertReq, { anchor: "Uf2a", direction: "after", lines: ["a", "b"] }).text, "a\nb");
+  // Upstream's own aliases still work, together with ours.
+  const both = valid(replace, assertReq, { replace_from: "Uf2a", replace_to: "Uf2a", replacement_text: "z" });
+  assert.deepEqual([both.remove_from, both.remove_to, both.text], ["Uf2a", "Uf2a", "z"]);
+
+  // ref is dropped only when it names the same file as path (also as a path suffix).
+  for (const ref of ["package.json", "./package.json"]) {
+    const dropped = valid(replace, assertReq, { ...range, text: "x", path: "C:/proj\\package.json", ref });
+    assert.equal("ref" in dropped, false);
+  }
+  const kept = replace.prepareArguments({ ...range, text: "x", path: "src/a.ts", ref: "package.json" });
+  assert.equal(kept.ref, "package.json");
+  assert.throws(() => assertReq(kept), /unknown or unsupported fields: ref/);
+  assert.equal("ref" in replace.prepareArguments({ ...range, text: "x", ref: "package.json" }), true);
+
+  // Explicit text is never overwritten; the conflicting alias stays and is rejected.
+  const conflict = replace.prepareArguments({ ...range, text: "keep", replacement_text: "other" });
+  assert.deepEqual([conflict.text, conflict.replacement_text], ["keep", "other"]);
+  assert.throws(() => assertReq(conflict), /replacement_text/);
+
+  // Ambiguous or uninferable shapes come back untouched and still fail validation.
+  const insertStyle = { anchor: "XdMQ", remove_from: "XdMQ", direction: "after", lines: ["a"] };
+  assert.deepEqual(replace.prepareArguments(insertStyle), insertStyle);
+  assert.equal(Value.Check(replace.parameters, replace.prepareArguments(insertStyle)), false);
+  for (const args of [
+    { path: "a.ts", replacement_text: "x" },
+    { anchor: "ccJE", replacement_lines: ["x"] },
+  ]) {
+    const prepared = replace.prepareArguments(args);
+    assert.equal(Value.Check(replace.parameters, prepared), false);
+    assert.equal("remove_from" in prepared, false);
+  }
+  // remove_to is not defaulted to remove_from.
+  const noTo = replace.prepareArguments({ remove_from: "Uf2a", text: "x" });
+  assert.equal("remove_to" in noTo, false);
+  assert.equal(Value.Check(replace.parameters, noTo), false);
+  // insert without anchor stays invalid.
+  assert.equal(Value.Check(insert.parameters, insert.prepareArguments({ direction: "after", lines: ["a"] })), false);
+
+  // Pure, idempotent, non-throwing; non-object input passes through.
+  const input = Object.freeze({ ...range, replacement_lines: ["x"], ref: "a" });
+  const once = replace.prepareArguments(input);
+  assert.deepEqual(replace.prepareArguments(once), once);
+  assert.equal("replacement_lines" in input, true);
+  for (const odd of [undefined, null, "x", 3, ["x"]]) assert.deepEqual(replace.prepareArguments(odd), odd);
+
+  // Other tools keep upstream's prepare untouched by this layer.
+  const match = registered.find((tool) => tool.name === "replace_match");
+  assert.equal(match.prepareArguments({ remove_from: "a", remove_to: "b" }).replace_from, "a");
+});
